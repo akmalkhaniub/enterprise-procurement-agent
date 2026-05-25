@@ -19,7 +19,9 @@ import json
 llm = ChatVertexAI(model_name="gemini-2.5-flash", temperature=0)
 
 # --- 1. SQL Data Analyst Setup ---
-db = SQLDatabase.from_uri("sqlite:///procurement.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+db_path = os.path.join(BASE_DIR, "procurement.db")
+db = SQLDatabase.from_uri(f"sqlite:///{db_path}")
 sql_toolkit = SQLDatabaseToolkit(db=db, llm=llm)
 sql_tools = sql_toolkit.get_tools()
 
@@ -30,7 +32,7 @@ sql_agent_executor = create_react_agent(
 )
 
 # --- 2. Policy Researcher (RAG) Setup ---
-chroma_client = chromadb.PersistentClient(path="./chroma_db")
+chroma_client = chromadb.PersistentClient(path=os.path.join(BASE_DIR, "chroma_db"))
 emb_fn = embedding_functions.DefaultEmbeddingFunction()
 try:
     collection = chroma_client.get_collection("vendor_contracts", embedding_function=emb_fn)
@@ -117,7 +119,16 @@ def supervisor_node(state: AgentState):
 
 def extract_text(content):
     if isinstance(content, list):
-        return " ".join([m.get("text", "") for m in content if isinstance(m, dict) and m.get("type") == "text" or "text" in m])
+        text_parts = []
+        for m in content:
+            if isinstance(m, dict):
+                if m.get("type") == "text" and "text" in m:
+                    text_parts.append(m["text"])
+                elif "text" in m:
+                    text_parts.append(m["text"])
+            elif isinstance(m, str):
+                text_parts.append(m)
+        return " ".join(text_parts)
     return str(content)
 
 def sql_node(state: AgentState):
