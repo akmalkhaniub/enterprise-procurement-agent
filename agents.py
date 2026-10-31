@@ -103,19 +103,42 @@ supervisor_prompt = ChatPromptTemplate.from_messages([
     MessagesPlaceholder(variable_name="messages"),
 ])
 
+VALID_ROUTES = ("DataAnalyst", "Researcher", "OpsEngineer", "FINISH")
+MAX_SUPERVISOR_TURNS = 8
+
+
+def parse_supervisor_route(raw_text: str, messages: Sequence[BaseMessage]) -> str:
+    """Deterministically resolve the next subagent route with loop & turn-budget guards."""
+    if len(messages) >= MAX_SUPERVISOR_TURNS:
+        return "FINISH"
+
+    cleaned = raw_text.strip().strip("'\"`.").split()[0] if raw_text and raw_text.strip() else "FINISH"
+    if cleaned in VALID_ROUTES:
+        candidate = cleaned
+    else:
+        # Check last occurrence in text rather than fixed if/elif priority
+        last_pos = -1
+        candidate = "FINISH"
+        for route in VALID_ROUTES:
+            pos = raw_text.rfind(route)
+            if pos > last_pos:
+                last_pos = pos
+                candidate = route
+
+    # Stagnation guard: if the most recent AIMessage already came from `candidate`, finish or advance
+    if messages and isinstance(messages[-1], AIMessage) and getattr(messages[-1], "name", None) == candidate:
+        return "FINISH"
+
+    return candidate
+
+
 def supervisor_node(state: AgentState):
     messages = state["messages"]
-    response = llm.invoke(supervisor_prompt.format_messages(messages=messages))
-    # Simple routing based on output text
-    next_step = response.content.strip()
-    if "DataAnalyst" in next_step:
-        return {"next_agent": "DataAnalyst"}
-    elif "Researcher" in next_step:
-        return {"next_agent": "Researcher"}
-    elif "OpsEngineer" in next_step:
-        return {"next_agent": "OpsEngineer"}
-    else:
+    if len(messages) >= MAX_SUPERVISOR_TURNS:
         return {"next_agent": "FINISH"}
+    response = llm.invoke(supervisor_prompt.format_messages(messages=messages))
+    next_step = parse_supervisor_route(extract_text(response.content), messages)
+    return {"next_agent": next_step}
 
 def extract_text(content):
     if isinstance(content, list):
@@ -133,15 +156,15 @@ def extract_text(content):
 
 def sql_node(state: AgentState):
     result = sql_agent_executor.invoke({"messages": state["messages"]})
-    return {"messages": [AIMessage(content=extract_text(result['messages'][-1].content))]}
+    return {"messages": [AIMessage(content=extract_text(result['messages'][-1].content), name="DataAnalyst")]}
 
 def research_node(state: AgentState):
     result = research_agent_executor.invoke({"messages": state["messages"]})
-    return {"messages": [AIMessage(content=extract_text(result['messages'][-1].content))]}
+    return {"messages": [AIMessage(content=extract_text(result['messages'][-1].content), name="Researcher")]}
 
 def ops_node(state: AgentState):
     result = ops_agent_executor.invoke({"messages": state["messages"]})
-    return {"messages": [AIMessage(content=extract_text(result['messages'][-1].content))]}
+    return {"messages": [AIMessage(content=extract_text(result['messages'][-1].content), name="OpsEngineer")]}
 
 # Build the Graph
 workflow = StateGraph(AgentState)
