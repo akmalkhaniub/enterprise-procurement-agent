@@ -15,8 +15,9 @@ import requests
 import os
 import json
 
-# Initialize LLM
-llm = ChatVertexAI(model_name="gemini-2.5-flash", temperature=0)
+# Initialize LLM (defaults to gemini-3.8-flash, overrideable via MODEL_NAME)
+model_name = os.getenv("MODEL_NAME", "gemini-3.8-flash")
+llm = ChatVertexAI(model_name=model_name, temperature=0)
 
 # --- 1. SQL Data Analyst Setup ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
