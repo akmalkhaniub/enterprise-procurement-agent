@@ -29,7 +29,7 @@ class ContractAnalysis(BaseModel):
     contract_title: str
     annual_value_usd: float
     clauses: List[ContractClause] = Field(default_factory=list)
-    extracted_at: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat())
+    extracted_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
 
 
 class VendorRiskScore(BaseModel):

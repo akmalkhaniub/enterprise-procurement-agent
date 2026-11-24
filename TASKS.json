@@ -1,7 +1,7 @@
 [
   {
     "id": "EPA-001",
-    "status": "TODO",
+    "status": "DONE",
     "priority": 1,
     "title": "Add Mock Vector Search Fixtures for Procurement Contract Tests",
     "description": "Add in-memory cosine similarity mock for Pinecone in `tests/test_procurement.py` so contract risk evaluations run offline during CI.",
