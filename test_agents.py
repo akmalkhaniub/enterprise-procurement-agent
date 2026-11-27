@@ -57,7 +57,7 @@ def test_database_schema(tmp_path):
 
 # Test search_vendor_policies tool when collection is None (fallback state)
 def test_search_vendor_policies_db_not_initialized():
-    with patch('agents.collection', None):
+    with patch('agents.collection', None), patch('agents.get_collection', return_value=None):
         response = search_vendor_policies.invoke({"query": "compliance"})
         assert response == "Vector database not initialized."
 
